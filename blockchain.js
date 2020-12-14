@@ -1,18 +1,21 @@
-"use strict";
+'use strict';
 
 const BigInteger = require('jsbn').BigInteger;
 
 // Network message constants
-const MISSING_BLOCK = "MISSING_BLOCK";
-const POST_TRANSACTION = "POST_TRANSACTION";
-const PROOF_FOUND = "PROOF_FOUND";
-const START_MINING = "START_MINING";
+const MISSING_BLOCK = 'MISSING_BLOCK';
+const POST_TRANSACTION = 'POST_TRANSACTION';
+const PROOF_FOUND = 'PROOF_FOUND';
+const START_MINING = 'START_MINING';
 
 // Constants for mining
 const NUM_ROUNDS_MINING = 2000;
 
 // Constants related to proof-of-work target
-const POW_BASE_TARGET = new BigInteger("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16);
+const POW_BASE_TARGET = new BigInteger(
+  'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+  16
+);
 const POW_LEADING_ZEROES = 15;
 
 // Constants for mining rewards and default transaction fees
@@ -24,35 +27,51 @@ const DEFAULT_TX_FEE = 1;
 // Note that the genesis block is always considered to be confirmed.
 const CONFIRMED_DEPTH = 6;
 
-
 /**
  * The Blockchain class tracks configuration information and settings for the blockchain,
  * as well as some utility methods to allow for easy extensibility.
  */
 module.exports = class Blockchain {
-  static get MISSING_BLOCK() { return MISSING_BLOCK; }
-  static get POST_TRANSACTION() { return POST_TRANSACTION; }
-  static get PROOF_FOUND() { return PROOF_FOUND; }
-  static get START_MINING() { return START_MINING; }
+  static get MISSING_BLOCK() {
+    return MISSING_BLOCK;
+  }
+  static get POST_TRANSACTION() {
+    return POST_TRANSACTION;
+  }
+  static get PROOF_FOUND() {
+    return PROOF_FOUND;
+  }
+  static get START_MINING() {
+    return START_MINING;
+  }
 
-  static get NUM_ROUNDS_MINING() { return NUM_ROUNDS_MINING; }
+  static get NUM_ROUNDS_MINING() {
+    return NUM_ROUNDS_MINING;
+  }
 
   // Configurable properties.
-  static get POW_TARGET() { return Blockchain.cfg.powTarget; }
-  static get COINBASE_AMT_ALLOWED() { return Blockchain.cfg.coinbaseAmount; }
-  static get DEFAULT_TX_FEE() { return Blockchain.cfg.defaultTxFee; }
-  static get CONFIRMED_DEPTH() { return Blockchain.cfg.confirmedDepth; }
-
+  static get POW_TARGET() {
+    return Blockchain.cfg.powTarget;
+  }
+  static get COINBASE_AMT_ALLOWED() {
+    return Blockchain.cfg.coinbaseAmount;
+  }
+  static get DEFAULT_TX_FEE() {
+    return Blockchain.cfg.defaultTxFee;
+  }
+  static get CONFIRMED_DEPTH() {
+    return Blockchain.cfg.confirmedDepth;
+  }
 
   /**
    * Produces a new genesis block, giving the specified clients
    * the specified amount of starting gold.  Either clientBalanceMap
    * OR startingBalances can be specified, but not both.
-   * 
+   *
    * If clientBalanceMap is specified, then this method will also
    * set the genesis block for every client passed in.  This option
    * is useful in single-threaded mode.
-   * 
+   *
    * @param {Object} cfg - Settings for the blockchain.
    * @param {Class} cfg.blockClass - Implementation of the Block class.
    * @param {Class} cfg.transactionClass - Implementation of the Transaction class.
@@ -64,7 +83,7 @@ module.exports = class Blockchain {
    *    if not overridden by the client.
    * @param {number} [cfg.confirmedDepth] - Number of blocks required after a block before it is
    *    considered confirmed.
-   * 
+   *
    * @returns {Block} - The genesis block.
    */
   static makeGenesis({
@@ -76,16 +95,26 @@ module.exports = class Blockchain {
     confirmedDepth = CONFIRMED_DEPTH,
     clientBalanceMap,
     startingBalances,
+    clientKeyMap,
+    userProps,
+    usageIndexsMap,
   }) {
-
     if (clientBalanceMap && startingBalances) {
-      throw new Error("You may set clientBalanceMap OR set startingBalances, but not both.");
+      throw new Error(
+        'You may set clientBalanceMap OR set startingBalances, but not both.'
+      );
     }
 
     // Setting blockchain configuration
-    Blockchain.cfg = { blockClass, transactionClass, coinbaseAmount, defaultTxFee, confirmedDepth };
+    Blockchain.cfg = {
+      blockClass,
+      transactionClass,
+      coinbaseAmount,
+      defaultTxFee,
+      confirmedDepth,
+    };
     Blockchain.cfg.powTarget = POW_BASE_TARGET.shiftRight(powLeadingZeroes);
-    
+
     // If startingBalances was specified, we initialize our balances to that object.
     let balances = startingBalances || {};
 
@@ -98,10 +127,30 @@ module.exports = class Blockchain {
 
     let g = this.makeBlock();
 
-    // Initializing starting balances in the genesis block.
+    // // Initializing starting balances in the genesis block.
+    // Object.keys(usageIndexsMap).forEach((client) => {
+    //   g.usageIndexes.set(client, 0);
+    // });
+
+    g.usageIndexes = usageIndexsMap;
+
+    // Initializing starting indexes in the genesis block.
     Object.keys(balances).forEach((addr) => {
       g.balances.set(addr, balances[addr]);
     });
+
+    let obj = {
+      from: [],
+      to: new Map(),
+    };
+
+    // // Initializing starting user props in the genesis block.
+    // Object.keys(userProps).forEach((client) => {
+    //   g.userPropsMap.set(client, obj);
+    // });
+
+    g.clients = clientKeyMap;
+    g.userPropsMap = userProps;
 
     // If clientBalanceMap was specified, we set the genesis block for every client.
     if (clientBalanceMap) {
@@ -115,9 +164,9 @@ module.exports = class Blockchain {
 
   /**
    * Converts a string representation of a block to a new Block instance.
-   * 
+   *
    * @param {Object} o - An object representing a block, but not necessarily an instance of Block.
-   * 
+   *
    * @returns {Block}
    */
   static deserializeBlock(o) {
@@ -131,7 +180,7 @@ module.exports = class Blockchain {
 
     if (b.isGenesisBlock()) {
       // Balances need to be recreated and restored in a map.
-      o.balances.forEach(([clientID,amount]) => {
+      o.balances.forEach(([clientID, amount]) => {
         b.balances.set(clientID, amount);
       });
     } else {
@@ -140,10 +189,11 @@ module.exports = class Blockchain {
       b.rewardAddr = o.rewardAddr;
       // Likewise, transactions need to be recreated and restored in a map.
       b.transactions = new Map();
-      if (o.transactions) o.transactions.forEach(([txID,txJson]) => {
-        let tx = new Blockchain.cfg.transactionClass(txJson);
-        b.transactions.set(txID, tx);
-      });
+      if (o.transactions)
+        o.transactions.forEach(([txID, txJson]) => {
+          let tx = new Blockchain.cfg.transactionClass(txJson);
+          b.transactions.set(txID, tx);
+        });
     }
 
     return b;
@@ -159,7 +209,5 @@ module.exports = class Blockchain {
     } else {
       return new Blockchain.cfg.transactionClass(o);
     }
-    
   }
-
 };

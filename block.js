@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 const BigInteger = require('jsbn').BigInteger;
 
@@ -11,11 +11,10 @@ const utils = require('./utils.js');
  * to a previous block.
  */
 module.exports = class Block {
-
   /**
    * Creates a new Block.  Note that the previous block will not be stored;
    * instead, its hash value will be maintained in this block.
-   * 
+   *
    * @constructor
    * @param {String} rewardAddr - The address to receive all mining rewards for this block.
    * @param {Block} [prevBlock] - The previous block in the blockchain.
@@ -23,7 +22,12 @@ module.exports = class Block {
    *      produces a smaller value when hashed.
    * @param {Number} [coinbaseReward] - The gold that a miner earns for finding a block proof.
    */
-  constructor(rewardAddr, prevBlock, target=Blockchain.POW_TARGET, coinbaseReward=Blockchain.COINBASE_AMT_ALLOWED) {
+  constructor(
+    rewardAddr,
+    prevBlock,
+    target = Blockchain.POW_TARGET,
+    coinbaseReward = Blockchain.COINBASE_AMT_ALLOWED
+  ) {
     this.prevBlockHash = prevBlock ? prevBlock.hashVal() : null;
     this.target = target;
 
@@ -32,10 +36,21 @@ module.exports = class Block {
     this.balances = prevBlock ? new Map(prevBlock.balances) : new Map();
     this.nextNonce = prevBlock ? new Map(prevBlock.nextNonce) : new Map();
 
+    this.clients = prevBlock ? new Map(prevBlock.clients) : new Map();
+
+    // this.usageIndexes = prevBlock ? new Map(prevBlock.usageIndexes) : new Map();
+    // this.userFromMap = prevBlock ? new Map(prevBlock.userFromMap) : new Map();
+    // this.userToMap = prevBlock ? new Map(prevBlock.userToMap) : new Map();
+    this.userPropsMap = prevBlock ? new Map(prevBlock.userPropsMap) : new Map();
+    this.usageIndexes = prevBlock ? new Map(prevBlock.usageIndexes) : new Map();
+
     if (prevBlock && prevBlock.rewardAddr) {
       // Add the previous block's rewards to the miner who found the proof.
       let winnerBalance = this.balanceOf(prevBlock.rewardAddr) || 0;
-      this.balances.set(prevBlock.rewardAddr, winnerBalance + prevBlock.totalRewards());
+      this.balances.set(
+        prevBlock.rewardAddr,
+        winnerBalance + prevBlock.totalRewards()
+      );
     }
 
     // Storing transactions in a Map to preserve key order.
@@ -50,12 +65,11 @@ module.exports = class Block {
     //   return JSON.stringify(Array.from(this.balances.entries()));
     // }
 
-
     // Used to determine the winner between competing chains.
     // Note that this is a little simplistic -- an attacker
     // could make a long, but low-work chain.  However, this works
     // well enough for us.
-    this.chainLength = prevBlock ? prevBlock.chainLength+1 : 0;
+    this.chainLength = prevBlock ? prevBlock.chainLength + 1 : 0;
 
     this.timestamp = Date.now();
 
@@ -68,7 +82,7 @@ module.exports = class Block {
 
   /**
    * Determines whether the block is the beginning of the chain.
-   * 
+   *
    * @returns {Boolean} - True if this is the first block in the chain.
    */
   isGenesisBlock() {
@@ -78,7 +92,7 @@ module.exports = class Block {
   /**
    * Returns true if the hash of the block is less than the target
    * proof of work value.
-   * 
+   *
    * @returns {Boolean} - True if the block has a valid proof.
    */
   hasValidProof() {
@@ -90,48 +104,48 @@ module.exports = class Block {
   /**
    * Converts a Block into string form.  Some fields are deliberately omitted.
    * Note that Block.deserialize plus block.rerun should restore the block.
-   * 
+   *
    * @returns {String} - The block in JSON format.
    */
   serialize() {
     return JSON.stringify(this);
-   //if (this.isGenesisBlock()) {
-   //  // The genesis block does not contain a proof or transactions,
-   //  // but is the only block than can specify balances.
-   //  /*******return `
-   //     {"chainLength": "${this.chainLength}",
-   //      "timestamp": "${this.timestamp}",
-   //      "balances": ${JSON.stringify(Array.from(this.balances.entries()))}
-   //     }
-   //  `;****/
-   //  let o = {
-   //    chainLength: this.chainLength,
-   //    timestamp: this.timestamp,
-   //    balances: Array.from(this.balances.entries()),
-   //  };
-   //  return JSON.stringify(o, ['chainLength', 'timestamp', 'balances']);
-   //} else {
-   //  // Other blocks must specify transactions and proof details.
-   //  /******return `
-   //     {"chainLength": "${this.chainLength}",
-   //      "timestamp": "${this.timestamp}",
-   //      "transactions": ${JSON.stringify(Array.from(this.transactions.entries()))},
-   //      "prevBlockHash": "${this.prevBlockHash}",
-   //      "proof": "${this.proof}",
-   //      "rewardAddr": "${this.rewardAddr}"
-   //     }
-   //  `;*****/
-   //  let o = {
-   //    chainLength: this.chainLength,
-   //    timestamp: this.timestamp,
-   //    transactions: Array.from(this.transactions.entries()),
-   //    prevBlockHash: this.prevBlockHash,
-   //    proof: this.proof,
-   //    rewardAddr: this.rewardAddr,
-   //  };
-   //  return JSON.stringify(o, ['chainLength', 'timestamp', 'transactions',
-   //       'prevBlockHash', 'proof', 'rewardAddr']);
-   //}
+    //if (this.isGenesisBlock()) {
+    //  // The genesis block does not contain a proof or transactions,
+    //  // but is the only block than can specify balances.
+    //  /*******return `
+    //     {"chainLength": "${this.chainLength}",
+    //      "timestamp": "${this.timestamp}",
+    //      "balances": ${JSON.stringify(Array.from(this.balances.entries()))}
+    //     }
+    //  `;****/
+    //  let o = {
+    //    chainLength: this.chainLength,
+    //    timestamp: this.timestamp,
+    //    balances: Array.from(this.balances.entries()),
+    //  };
+    //  return JSON.stringify(o, ['chainLength', 'timestamp', 'balances']);
+    //} else {
+    //  // Other blocks must specify transactions and proof details.
+    //  /******return `
+    //     {"chainLength": "${this.chainLength}",
+    //      "timestamp": "${this.timestamp}",
+    //      "transactions": ${JSON.stringify(Array.from(this.transactions.entries()))},
+    //      "prevBlockHash": "${this.prevBlockHash}",
+    //      "proof": "${this.proof}",
+    //      "rewardAddr": "${this.rewardAddr}"
+    //     }
+    //  `;*****/
+    //  let o = {
+    //    chainLength: this.chainLength,
+    //    timestamp: this.timestamp,
+    //    transactions: Array.from(this.transactions.entries()),
+    //    prevBlockHash: this.prevBlockHash,
+    //    proof: this.proof,
+    //    rewardAddr: this.rewardAddr,
+    //  };
+    //  return JSON.stringify(o, ['chainLength', 'timestamp', 'transactions',
+    //       'prevBlockHash', 'proof', 'rewardAddr']);
+    //}
   }
 
   toJSON() {
@@ -157,7 +171,7 @@ module.exports = class Block {
    * Returns the cryptographic hash of the current block.
    * The block is first converted to its serial form, so
    * any unimportant fields are ignored.
-   * 
+   *
    * @returns {String} - cryptographic hash of the block.
    */
   hashVal() {
@@ -166,7 +180,7 @@ module.exports = class Block {
 
   /**
    * Returns the hash of the block as its id.
-   * 
+   *
    * @returns {String} - A unique ID for the block.
    */
   get id() {
@@ -175,10 +189,10 @@ module.exports = class Block {
 
   /**
    * Accepts a new transaction if it is valid and adds it to the block.
-   * 
+   *
    * @param {Transaction} tx - The transaction to add to the block.
    * @param {Client} [client] - A client object, for logging useful messages.
-   * 
+   *
    * @returns {Boolean} - True if the transaction was added successfully.
    */
   addTransaction(tx, client) {
@@ -218,7 +232,7 @@ module.exports = class Block {
     this.balances.set(tx.from, senderBalance - tx.totalOutput());
 
     // Giving gold to the specified output addresses
-    tx.outputs.forEach(({amount, address}) => {
+    tx.outputs.forEach(({ amount, address }) => {
       let oldBalance = this.balanceOf(address);
       this.balances.set(address, amount + oldBalance);
     });
@@ -232,9 +246,9 @@ module.exports = class Block {
    * and re-adding all transactions.  This process also identifies if any transactions were
    * invalid due to insufficient funds or replayed transactions, in which case the block
    * should be rejected.
-   * 
+   *
    * @param {Block} prevBlock - The previous block in the blockchain, used for initial balances.
-   * 
+   *
    * @returns {Boolean} - True if the block's transactions are all valid.
    */
   rerun(prevBlock) {
@@ -242,9 +256,16 @@ module.exports = class Block {
     this.balances = new Map(prevBlock.balances);
     this.nextNonce = new Map(prevBlock.nextNonce);
 
+    this.usageIndexes = new Map(prevBlock.usageIndexes);
+    this.userPropsMap = new Map(prevBlock.userPropsMap);
+
     // Adding coinbase reward for prevBlock.
     let winnerBalance = this.balanceOf(prevBlock.rewardAddr);
-    if (prevBlock.rewardAddr) this.balances.set(prevBlock.rewardAddr, winnerBalance + prevBlock.totalRewards());
+    if (prevBlock.rewardAddr)
+      this.balances.set(
+        prevBlock.rewardAddr,
+        winnerBalance + prevBlock.totalRewards()
+      );
 
     // Re-adding all transactions.
     let txs = this.transactions;
@@ -262,27 +283,36 @@ module.exports = class Block {
    * Note that this amount is a snapshot in time - IF the block is
    * accepted by the network, ignoring any pending transactions,
    * this is the amount of funds available to the client.
-   * 
+   *
    * @param {String} addr - Address of a client.
-   * 
+   *
    * @returns {Number} - The available gold for the specified user.
    */
   balanceOf(addr) {
     return this.balances.get(addr) || 0;
   }
 
+  indexOf(addr) {
+    return this.usageIndexes.get(addr);
+  }
+
+  userPropsOf(client) {
+    return this.userPropsMap.get(client);
+  }
+
   /**
    * The total amount of gold paid to the miner who produced this block,
    * if the block is accepted.  This includes both the coinbase transaction
    * and any transaction fees.
-   * 
+   *
    * @returns {Number} Total reward in gold for the user.
-   * 
+   *
    */
   totalRewards() {
     return [...this.transactions].reduce(
       (reward, [, tx]) => reward + tx.fee,
-      this.coinbaseReward);
+      this.coinbaseReward
+    );
   }
 
   /**
